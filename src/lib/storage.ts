@@ -5,8 +5,10 @@ import { getDefaultCards } from './defaultData';
 const STORAGE_KEY = 'vietnamese_anki_cards';
 const LEVEL_KEY = 'vietnamese_anki_level';
 const LEVEL_DIALOG_KEY = 'vietnamese_anki_level_dialogs';
+const DATA_VERSION_KEY = 'vietnamese_anki_data_version';
 
 const API_BASE = import.meta.env.VITE_STORAGE_API_BASE || '/api/storage';
+const DATA_VERSION = '2';
 
 const sanitizeCard = (card: any): Flashcard => ({
   id: String(card?.id || `legacy_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`),
@@ -47,6 +49,38 @@ let levelDialogsCache: Record<string, LevelDialog[]> = {};
 let initialized = false;
 let initializing: Promise<void> | null = null;
 let serverAvailable = true;
+
+const getDataVersion = () => localStorage.getItem(DATA_VERSION_KEY);
+
+const setDataVersion = (value: string) => {
+  localStorage.setItem(DATA_VERSION_KEY, value);
+};
+
+const mergeWithCurrentDefaults = (existingCards: Flashcard[]) => {
+  const defaults = getDefaultCards();
+  const existingById = new Map(existingCards.filter(isCardLike).map(card => [card.id, card]));
+  const merged = defaults.map((defaultCard) => {
+    const existing = existingById.get(defaultCard.id);
+    if (!existing) {
+      return defaultCard;
+    }
+
+    return {
+      ...defaultCard,
+      repetition: existing.repetition,
+      interval: existing.interval,
+      easiness: existing.easiness,
+      nextReviewDate: existing.nextReviewDate,
+    };
+  });
+
+  const defaultIds = new Set(defaults.map(c => c.id));
+  const userCards = existingCards.filter(isCardLike).filter(card => !defaultIds.has(card.id));
+  return [...merged, ...userCards];
+};
+
+const isCardLike = (value: any): value is Flashcard =>
+  value && typeof value === 'object' && typeof value.id === 'string';
 
 const readCardsFromLocal = (): Flashcard[] => {
   const data = localStorage.getItem(STORAGE_KEY);
@@ -119,29 +153,26 @@ const request = async (path: string, options: RequestInit = {}) => {
     }
 
     if (!isJsonResponse(res)) {
-      serverAvailable = false;
       return null;
     }
 
     return res;
   } catch {
-    serverAvailable = false;
     return null;
   }
 };
 
-const loadFromServer = async () => {
+const loadFromServer = async (): Promise<boolean> => {
   const res = await request('/state');
   if (!res) {
-    return;
+    return false;
   }
 
   let payload: any;
   try {
     payload = await res.json();
   } catch {
-    serverAvailable = false;
-    return;
+    return false;
   }
 
   if (Array.isArray(payload?.cards)) {
@@ -160,6 +191,8 @@ const loadFromServer = async () => {
     levelDialogsCache = normalized;
     writeDialogsToLocal(normalized);
   }
+
+  return true;
 };
 
 const ensureInitialized = async () => {
@@ -169,6 +202,14 @@ const ensureInitialized = async () => {
     initializing = (async () => {
       cardsCache = readCardsFromLocal();
       levelDialogsCache = readDialogsFromLocal();
+      const localVersion = getDataVersion();
+      const isLatestDataVersion = localVersion === DATA_VERSION;
+
+      if (!isLatestDataVersion) {
+        cardsCache = mergeWithCurrentDefaults(cardsCache);
+        setDataVersion(DATA_VERSION);
+        writeCardsToLocal(cardsCache);
+      }
 
       if (cardsCache.length === 0 && Object.keys(levelDialogsCache).length === 0) {
         const defaults = getDefaultCards();
@@ -176,9 +217,19 @@ const ensureInitialized = async () => {
         writeCardsToLocal(defaults);
       }
 
-      await loadFromServer();
+      const syncedFromServer = await loadFromServer();
 
       if (cardsCache.length === 0) {
+        const defaults = getDefaultCards();
+        cardsCache = defaults;
+        writeCardsToLocal(defaults);
+      }
+
+      if (!syncedFromServer && !isLatestDataVersion) {
+        cardsCache = mergeWithCurrentDefaults(cardsCache);
+      }
+
+      if (!syncedFromServer && cardsCache.length === 0) {
         const defaults = getDefaultCards();
         cardsCache = defaults;
         writeCardsToLocal(defaults);
