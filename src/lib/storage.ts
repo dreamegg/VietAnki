@@ -85,6 +85,11 @@ const readDialogsFromLocal = (): Record<string, LevelDialog[]> => {
   }
 };
 
+const isJsonResponse = (res: Response) => {
+  const contentType = res.headers.get('content-type')?.toLowerCase() ?? '';
+  return contentType.includes('application/json') || contentType.includes('+json');
+};
+
 const writeCardsToLocal = (cards: Flashcard[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
 };
@@ -113,6 +118,11 @@ const request = async (path: string, options: RequestInit = {}) => {
       return null;
     }
 
+    if (!isJsonResponse(res)) {
+      serverAvailable = false;
+      return null;
+    }
+
     return res;
   } catch {
     serverAvailable = false;
@@ -126,7 +136,13 @@ const loadFromServer = async () => {
     return;
   }
 
-  const payload = await res.json();
+  let payload: any;
+  try {
+    payload = await res.json();
+  } catch {
+    serverAvailable = false;
+    return;
+  }
 
   if (Array.isArray(payload?.cards)) {
     const serverCards = payload.cards.map(sanitizeCard);
