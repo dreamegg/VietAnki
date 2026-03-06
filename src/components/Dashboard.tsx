@@ -6,8 +6,15 @@ interface DashboardProps {
   onNavigate: (view: 'dashboard' | 'study' | 'data' | 'dialogs' | 'dialogMode') => void;
 }
 
+const levelOptions: (number | 'all')[] = ['all', 1, 2, 3];
+
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
-  const [currentLevel, setCurrentLevelState] = useState<number | 'all'>(getSelectedLevel());
+  const getInitialLevel = () => {
+    const saved = getSelectedLevel();
+    return typeof saved === 'number' && levelOptions.includes(saved) ? saved : 'all';
+  };
+
+  const [currentLevel, setCurrentLevelState] = useState<number | 'all'>(getInitialLevel());
   const [stats, setStats] = useState({ due: 0, learning: 0, graduated: 0, total: 0 });
 
   const loadStats = async () => {
@@ -25,8 +32,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     void loadStats();
   }, [currentLevel]);
 
-  const levels: (number | 'all')[] = ['all', 1, 2, 3, 4, 5];
-
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
       <div className="text-center space-y-2">
@@ -40,7 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <span>학습 레벨 선택</span>
         </div>
         <div className="flex flex-wrap justify-center gap-2">
-          {levels.map(level => (
+          {levelOptions.map(level => (
             <button
               key={level}
               onClick={() => handleLevelChange(level)}
@@ -50,7 +55,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              {level === 'all' ? '전체 레벨' : `Level ${level}`}
+              {level === 'all' ? '전체 레벨' : `IM${level}`}
             </button>
           ))}
         </div>

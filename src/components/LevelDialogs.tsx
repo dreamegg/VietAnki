@@ -10,7 +10,7 @@ interface LevelDialogsProps {
   onNavigate: (view: 'dashboard') => void;
 }
 
-const levelList = [1, 2, 3, 4, 5, 6];
+const levelList = [1, 2, 3];
 
 export const LevelDialogs: React.FC<LevelDialogsProps> = ({ onNavigate }) => {
   const [currentLevel, setCurrentLevel] = useState<number>(1);
@@ -153,7 +153,7 @@ export const LevelDialogs: React.FC<LevelDialogsProps> = ({ onNavigate }) => {
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                Level {level} ({count}단어)
+                IM{level} ({count}단어)
               </button>
             );
           })}

@@ -26,28 +26,6 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
     void loadStats();
   }, []);
 
-  const exportCardsToCSV = (cards: any[], filename: string) => {
-    const rows = cards.map((c) => ({
-      '단어': c.word || '',
-      '의미': c.meaning || '',
-      '한자적 해석': c.hanja || '',
-      '예문': c.example || '',
-      '해석': c.translation || '',
-      '레벨': c.level || 1,
-    }));
-    const csv = Papa.unparse(rows);
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -132,11 +110,9 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
       await loadStats();
 
       if (addedCards.length > 0) {
-        const fileName = `vietanki_ai_words_level_${targetLevel}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
-        exportCardsToCSV(addedCards, fileName);
         setMessage({
           type: 'success',
-          text: `AI가 레벨 ${targetLevel}의 새로운 단어 ${addedCards.length}개를 생성했습니다. 파일로 저장했습니다: ${fileName}`,
+          text: `AI가 레벨 ${targetLevel}의 새로운 단어 ${addedCards.length}개를 생성했습니다.`,
         });
       } else {
         setMessage({
@@ -199,8 +175,8 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
                   onChange={(e) => setTargetLevel(Number(e.target.value))}
                   className="bg-white border border-emerald-200 text-emerald-900 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2"
                 >
-                  {[1, 2, 3, 4, 5, 6].map(lvl => (
-                    <option key={lvl} value={lvl}>Level {lvl}</option>
+                  {[1, 2, 3].map(lvl => (
+                    <option key={lvl} value={lvl}>IM{lvl}</option>
                   ))}
                 </select>
               </div>
@@ -267,7 +243,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
           <div className="flex items-center justify-between bg-indigo-50 p-4 rounded-xl border border-indigo-100">
             <div>
               <p className="font-medium text-indigo-900">레벨별 기본 단어 불러오기</p>
-              <p className="text-sm text-indigo-700">앱에 내장된 25개의 기본 단어(레벨 1~5)를 추가합니다.</p>
+              <p className="text-sm text-indigo-700">앱에 내장된 600개 기본 단어(IM1~IM3, 각 200개)를 추가합니다.</p>
             </div>
             <button
               onClick={handleLoadDefaults}

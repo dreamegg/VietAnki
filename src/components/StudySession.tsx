@@ -185,10 +185,10 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
 
       <div className="flex-1 flex flex-col">
         <div
-          className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 flex flex-col relative cursor-pointer"
+          className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 flex flex-col relative cursor-pointer min-h-0 max-h-[calc(100vh-150px)] overflow-hidden"
           onClick={() => !isFlipped && setIsFlipped(true)}
         >
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center overflow-y-auto pr-2">
             {!isFlipped ? (
               <>
                 {renderFront()}
@@ -198,7 +198,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="w-full space-y-8"
+                className="w-full space-y-8 min-h-0"
               >
                 <div className="flex flex-col items-center space-y-4">
                   <div className="flex items-center space-x-3">
@@ -243,7 +243,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
                     </button>
                   </div>
                 ) : (
-                  <div onClick={(e) => e.stopPropagation()} className="cursor-default text-left">
+                  <div onClick={(e) => e.stopPropagation()} className="cursor-default text-left max-h-72 overflow-y-auto pr-1">
                       <AIAnalysis
                         card={currentCard}
                         canAnalyze={answeredCount >= ANALYSIS_READY_COUNT}

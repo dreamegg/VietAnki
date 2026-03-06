@@ -7,7 +7,7 @@ interface LevelDialogModeProps {
   onNavigate: (view: 'dashboard') => void;
 }
 
-const levelList = [1, 2, 3, 4, 5, 6];
+const levelList = [1, 2, 3];
 
 const speakerLabel = (speaker: LevelDialog['lines'][number]['speaker']) => {
   switch (speaker) {
@@ -25,7 +25,7 @@ const speakerLabel = (speaker: LevelDialog['lines'][number]['speaker']) => {
 export const LevelDialogMode: React.FC<LevelDialogModeProps> = ({ onNavigate }) => {
   const [currentLevel, setCurrentLevel] = useState<number>(() => {
     const selected = getSelectedLevel();
-    return typeof selected === 'number' ? selected : 1;
+    return typeof selected === 'number' && levelList.includes(selected) ? selected : 1;
   });
   const [selectedDialogId, setSelectedDialogId] = useState<string>('');
   const [turnIndex, setTurnIndex] = useState<number>(0);
@@ -118,7 +118,7 @@ export const LevelDialogMode: React.FC<LevelDialogModeProps> = ({ onNavigate }) 
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
-            Level {level}
+            IM{level}
           </button>
         ))}
       </div>
