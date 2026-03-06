@@ -1,19 +1,29 @@
-import React, { useState } from 'react';
-import { BookOpen, BrainCircuit, Database, Trophy, Layers } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BookOpen, BrainCircuit, Database, Trophy, Layers, MessageCircle, Mic2 } from 'lucide-react';
 import { getStats, getSelectedLevel, setSelectedLevel } from '../lib/storage';
 
 interface DashboardProps {
-  onNavigate: (view: 'study' | 'data') => void;
+  onNavigate: (view: 'dashboard' | 'study' | 'data' | 'dialogs' | 'dialogMode') => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [currentLevel, setCurrentLevelState] = useState<number | 'all'>(getSelectedLevel());
-  const stats = getStats();
+  const [stats, setStats] = useState({ due: 0, learning: 0, graduated: 0, total: 0 });
+
+  const loadStats = async () => {
+    const next = await getStats();
+    setStats(next);
+  };
 
   const handleLevelChange = (level: number | 'all') => {
     setSelectedLevel(level);
     setCurrentLevelState(level);
+    void loadStats();
   };
+
+  useEffect(() => {
+    void loadStats();
+  }, [currentLevel]);
 
   const levels: (number | 'all')[] = ['all', 1, 2, 3, 4, 5];
 
@@ -54,7 +64,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <p className="text-sm font-medium text-slate-500">오늘 복습할 단어</p>
           <p className="text-3xl font-bold text-slate-900">{stats.due}</p>
         </div>
-        
+
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center space-y-2">
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
             <BrainCircuit size={24} />
@@ -94,6 +104,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         >
           <Database size={20} />
           <span>단어 데이터 관리</span>
+        </button>
+        <button
+          onClick={() => onNavigate('dialogs')}
+          className="flex-1 sm:flex-none px-8 py-4 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2"
+        >
+          <MessageCircle size={20} />
+          <span>레벨별 대화/해설</span>
+        </button>
+        <button
+          onClick={() => onNavigate('dialogMode')}
+          className="flex-1 sm:flex-none px-8 py-4 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2"
+        >
+          <Mic2 size={20} />
+          <span>레벨별 다이얼로그 모드</span>
         </button>
       </div>
     </div>

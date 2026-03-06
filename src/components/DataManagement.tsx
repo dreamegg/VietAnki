@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Papa from 'papaparse';
 import { Upload, Trash2, ArrowLeft, FileText, RefreshCw, Sparkles, Loader2 } from 'lucide-react';
 import { addCards, clearAllCards, getStats, getCards } from '../lib/storage';
@@ -15,27 +15,55 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
   const [isGenerating, setIsGenerating] = useState(false);
   const [targetLevel, setTargetLevel] = useState<number>(1);
   const [generateCount, setGenerateCount] = useState<number>(10);
-  const stats = getStats();
+  const [stats, setStats] = useState({ total: 0, due: 0, newCards: 0, learning: 0, graduated: 0 });
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const loadStats = async () => {
+    const next = await getStats();
+    setStats(next);
+  };
+
+  useEffect(() => {
+    void loadStats();
+  }, []);
+
+  const exportCardsToCSV = (cards: any[], filename: string) => {
+    const rows = cards.map((c) => ({
+      '단어': c.word || '',
+      '의미': c.meaning || '',
+      '한자적 해석': c.hanja || '',
+      '예문': c.example || '',
+      '해석': c.translation || '',
+      '레벨': c.level || 1,
+    }));
+    const csv = Papa.unparse(rows);
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: async (results) => {
         try {
           const newCards = results.data.map((row: any, index) => {
-            // Check for required fields based on the provided CSV format
-            // 단어,의미,한자적 해석,예문,해석,레벨
             const word = row['단어'] || row['word'];
             const meaning = row['의미'] || row['meaning'];
             const hanja = row['한자적 해석'] || row['hanja'] || '';
             const example = row['예문'] || row['example'] || '';
             const translation = row['해석'] || row['translation'] || '';
-            
-            // Parse level, default to 1 if not found or invalid
+
             const levelStr = row['레벨'] || row['level'] || '1';
             const levelMatch = levelStr.match(/\d+/);
             const level = levelMatch ? parseInt(levelMatch[0], 10) : 1;
@@ -55,7 +83,8 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
             });
           });
 
-          const addedCount = addCards(newCards);
+          const addedCount = (await addCards(newCards)).length;
+          await loadStats();
           setMessage({ type: 'success', text: `성공적으로 ${addedCount}개의 단어를 추가했습니다.` });
         } catch (err: any) {
           setMessage({ type: 'error', text: `CSV 파싱 오류: ${err.message}` });
@@ -67,11 +96,12 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
     });
   };
 
-  const handleLoadDefaults = () => {
+  const handleLoadDefaults = async () => {
     const defaultCards = getDefaultCards();
-    const addedCount = addCards(defaultCards);
-    if (addedCount > 0) {
-      setMessage({ type: 'success', text: `기본 단어 ${addedCount}개가 추가되었습니다.` });
+    const addedCardsCount = (await addCards(defaultCards)).length;
+    await loadStats();
+    if (addedCardsCount > 0) {
+      setMessage({ type: 'success', text: `기본 단어 ${addedCardsCount}개가 추가되었습니다.` });
     } else {
       setMessage({ type: 'success', text: '이미 모든 기본 단어가 추가되어 있습니다.' });
     }
@@ -81,27 +111,39 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
     try {
       setIsGenerating(true);
       setMessage(null);
-      
-      const allCards = getCards();
-      // Get some reference words from the target level or level below
+
+      const allCards = await getCards();
       let referenceCards = allCards.filter(c => c.level === targetLevel || c.level === targetLevel - 1);
       if (referenceCards.length === 0) {
-        referenceCards = allCards; // fallback to all
+        referenceCards = allCards;
       }
-      
-      // Pick 10 random reference words to give AI context
+
       const shuffled = [...referenceCards].sort(() => 0.5 - Math.random());
       const selectedRefs = shuffled.slice(0, 10);
-      
+
       const newWords = await generateNewWordsWithAI(selectedRefs, targetLevel, generateCount);
-      
+
       const newCards = newWords.map((w, index) => createInitialCard({
         id: `ai_gen_${Date.now()}_${index}`,
         ...w
       }));
-      
-      const addedCount = addCards(newCards);
-      setMessage({ type: 'success', text: `AI가 레벨 ${targetLevel}의 새로운 단어 ${addedCount}개를 생성하여 추가했습니다.` });
+
+      const addedCards = await addCards(newCards);
+      await loadStats();
+
+      if (addedCards.length > 0) {
+        const fileName = `vietanki_ai_words_level_${targetLevel}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+        exportCardsToCSV(addedCards, fileName);
+        setMessage({
+          type: 'success',
+          text: `AI가 레벨 ${targetLevel}의 새로운 단어 ${addedCards.length}개를 생성했습니다. 파일로 저장했습니다: ${fileName}`,
+        });
+      } else {
+        setMessage({
+          type: 'success',
+          text: 'AI가 생성한 단어는 기존 데이터와 중복되어 추가되지 않았습니다.',
+        });
+      }
     } catch (err: any) {
       setMessage({ type: 'error', text: `AI 단어 생성 실패: ${err.message}` });
     } finally {
@@ -109,9 +151,10 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
     }
   };
 
-  const handleClearData = () => {
+  const handleClearData = async () => {
     if (window.confirm('정말 모든 학습 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-      clearAllCards();
+      await clearAllCards();
+      await loadStats();
       setMessage({ type: 'success', text: '모든 데이터가 삭제되었습니다. 앱을 새로고침하면 기본 단어가 다시 로드됩니다.' });
     }
   };
@@ -138,7 +181,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
       )}
 
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6">
-        
+
         <div className="space-y-4">
           <h3 className="text-lg font-semibold flex items-center text-emerald-600">
             <Sparkles size={20} className="mr-2" />
@@ -151,8 +194,8 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex items-center space-x-2">
                 <label className="text-sm font-medium text-emerald-900">목표 레벨:</label>
-                <select 
-                  value={targetLevel} 
+                <select
+                  value={targetLevel}
                   onChange={(e) => setTargetLevel(Number(e.target.value))}
                   className="bg-white border border-emerald-200 text-emerald-900 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2"
                 >
@@ -163,8 +206,8 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
               </div>
               <div className="flex items-center space-x-2">
                 <label className="text-sm font-medium text-emerald-900">생성 개수:</label>
-                <select 
-                  value={generateCount} 
+                <select
+                  value={generateCount}
                   onChange={(e) => setGenerateCount(Number(e.target.value))}
                   className="bg-white border border-emerald-200 text-emerald-900 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2"
                 >
@@ -203,7 +246,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
             CSV 파일은 다음 헤더를 포함해야 합니다: <br/>
             <code className="bg-slate-100 px-2 py-1 rounded text-slate-700">단어, 의미, 한자적 해석, 예문, 해석, 레벨(선택)</code>
           </p>
-          
+
           <div className="flex items-center justify-center w-full">
             <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
               <div className="flex flex-col items-center justify-center pt-5 pb-6">

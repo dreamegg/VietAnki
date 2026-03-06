@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { StudySession } from './components/StudySession';
 import { DataManagement } from './components/DataManagement';
+import { LevelDialogs } from './components/LevelDialogs';
+import { LevelDialogMode } from './components/LevelDialogMode';
 
-type View = 'dashboard' | 'study' | 'data';
+type View = 'dashboard' | 'study' | 'data' | 'dialogs' | 'dialogMode';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -26,6 +28,8 @@ export default function App() {
         {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} />}
         {currentView === 'study' && <StudySession onNavigate={setCurrentView} />}
         {currentView === 'data' && <DataManagement onNavigate={setCurrentView} />}
+        {currentView === 'dialogs' && <LevelDialogs onNavigate={setCurrentView} />}
+        {currentView === 'dialogMode' && <LevelDialogMode onNavigate={setCurrentView} />}
       </main>
     </div>
   );

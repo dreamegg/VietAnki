@@ -17,7 +17,11 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showAI, setShowAI] = useState(false);
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [currentMode, setCurrentMode] = useState<StudyMode>('vi-to-ko');
+
+  const ANALYSIS_READY_COUNT = 3;
 
   const getRandomMode = (card: Flashcard): StudyMode => {
     const modes: StudyMode[] = ['vi-to-ko', 'ko-to-vi'];
@@ -27,18 +31,33 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
     return modes[Math.floor(Math.random() * modes.length)];
   };
 
-  const loadNextBatch = () => {
-    const batch = getStudyBatch(10);
+  const loadNextBatch = async () => {
+    setLoading(true);
+    const batch = await getStudyBatch(10);
     setCards(batch);
     setCurrentIndex(0);
+    setIsFlipped(false);
+    setShowAI(false);
     if (batch.length > 0) {
       setCurrentMode(getRandomMode(batch[0]));
     }
+    setLoading(false);
   };
 
   useEffect(() => {
-    loadNextBatch();
+    void loadNextBatch();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-center space-y-6 mt-20">
+        <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
+          <Loader2 className="animate-spin" size={28} />
+        </div>
+        <p className="text-slate-500">학습 데이터를 불러오는 중입니다...</p>
+      </div>
+    );
+  }
 
   if (cards.length === 0) {
     return (
@@ -62,31 +81,36 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
 
   const playAudio = (text: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!window.speechSynthesis || !text) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'vi-VN';
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleAnswer = (quality: number) => {
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const handleAnswer = async (quality: number) => {
     const updatedCard = calculateNextReview(currentCard, quality);
-    updateCard(updatedCard);
-    
+    await updateCard(updatedCard);
+
+    setAnsweredCount(prev => prev + 1);
+
     setIsFlipped(false);
     setShowAI(false);
-    
+
     if (currentIndex < cards.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setCurrentMode(getRandomMode(cards[nextIndex]));
     } else {
-      loadNextBatch();
+      void loadNextBatch();
     }
   };
 
   const getBlankedExample = (example: string, word: string) => {
     if (!example || !word) return example;
-    const regex = new RegExp(word, 'gi');
+    const regex = new RegExp(escapeRegExp(word), 'gi');
     return example.replace(regex, '_____');
   };
 
@@ -96,14 +120,14 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
         return (
           <div className="flex flex-col items-center justify-center space-y-4 w-full">
             <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold mb-4">한국어 → 베트남어</span>
-            <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">{currentCard.meaning}</h2>
+            <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 tracking-tight">{currentCard.meaning}</h2>
           </div>
         );
       case 'fill-in-blank':
         return (
           <div className="flex flex-col items-center justify-center space-y-6 w-full">
             <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold mb-2">빈칸 채우기</span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-relaxed">
+            <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-relaxed">
               {getBlankedExample(currentCard.example, currentCard.word)}
             </h2>
             <p className="text-xl text-slate-500 font-medium">{currentCard.meaning}</p>
@@ -115,7 +139,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
           <div className="flex flex-col items-center justify-center space-y-6 w-full">
             <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold mb-2">베트남어 → 한국어</span>
             <div className="flex items-center justify-center space-x-4">
-              <h2 className="text-5xl sm:text-6xl font-bold text-slate-900 tracking-tight">
+              <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
                 {currentCard.word}
               </h2>
               <button
@@ -145,7 +169,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-4 sm:p-6 min-h-screen flex flex-col">
+    <div className="max-w-2xl mx-auto px-3 py-3 sm:px-4 sm:py-6 min-h-screen flex flex-col">
       <div className="flex items-center justify-between mb-8">
         <button
           onClick={() => onNavigate('dashboard')}
@@ -160,15 +184,15 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
       </div>
 
       <div className="flex-1 flex flex-col">
-        <div 
-          className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 p-8 sm:p-12 flex flex-col relative cursor-pointer"
+        <div
+          className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 flex flex-col relative cursor-pointer"
           onClick={() => !isFlipped && setIsFlipped(true)}
         >
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             {!isFlipped ? (
               <>
                 {renderFront()}
-                <p className="text-slate-400 mt-12 animate-pulse">클릭하여 정답 확인</p>
+                <p className="text-slate-400 mt-8 sm:mt-10 animate-pulse">클릭하여 정답 확인</p>
               </>
             ) : (
               <motion.div
@@ -184,7 +208,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
                     </button>
                   </div>
                   <div className="flex flex-col items-center space-y-2">
-                    <p className="text-2xl font-medium text-blue-600">{currentCard.meaning}</p>
+                    <p className="text-xl sm:text-2xl font-medium text-blue-600">{currentCard.meaning}</p>
                     {currentCard.hanja && (
                       <p className="text-sm text-slate-500 font-mono bg-slate-50 inline-block px-3 py-1 rounded-lg">
                         {currentCard.hanja}
@@ -194,10 +218,10 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
                 </div>
 
                 {currentCard.example && (
-                  <div className="bg-slate-50 p-6 rounded-2xl text-left space-y-2 flex items-start justify-between">
+                  <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl text-left space-y-2 flex items-start justify-between">
                     <div className="space-y-1">
-                      <p className="text-lg text-slate-800 font-medium">{currentCard.example}</p>
-                      <p className="text-slate-500">{currentCard.translation}</p>
+                      <p className="text-sm sm:text-base text-slate-800 font-medium">{currentCard.example}</p>
+                      <p className="text-sm sm:text-base text-slate-500">{currentCard.translation}</p>
                     </div>
                     <button onClick={(e) => playAudio(currentCard.example, e)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors flex-shrink-0">
                       <Volume2 size={20} />
@@ -220,9 +244,14 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
                   </div>
                 ) : (
                   <div onClick={(e) => e.stopPropagation()} className="cursor-default text-left">
-                    <AIAnalysis card={currentCard} />
-                  </div>
-                )}
+                      <AIAnalysis
+                        card={currentCard}
+                        canAnalyze={answeredCount >= ANALYSIS_READY_COUNT}
+                        progress={answeredCount}
+                        threshold={ANALYSIS_READY_COUNT}
+                      />
+                    </div>
+                  )}
               </motion.div>
             )}
           </div>
@@ -233,7 +262,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="grid grid-cols-4 gap-2 sm:gap-4 mt-8"
+              className="grid grid-cols-4 gap-2 sm:gap-4 mt-4 sm:mt-6"
             >
               <button
                 onClick={() => handleAnswer(0)}

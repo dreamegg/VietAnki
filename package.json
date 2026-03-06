@@ -5,9 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
+    "server": "tsx server/index.ts",
+    "dev:server": "npm run server",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
+    "deploy:cloudflare": "wrangler pages deploy dist --project-name vietnamese-anki-ai --commit-dirty=true",
+    "deploy": "npm run build && npm run deploy:cloudflare",
+    "deploy:all": "npm run deploy",
+    "release": "npm run deploy",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

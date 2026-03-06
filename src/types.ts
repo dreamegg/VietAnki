@@ -22,3 +22,19 @@ export interface AIAnalysisResult {
   antonyms: string[];
   culturalContext?: string;
 }
+
+export interface DialogLine {
+  speaker: 'A' | 'B' | 'T';
+  vietnamese: string;
+  korean: string;
+}
+
+export interface LevelDialog {
+  level: number;
+  title: string;
+  setting: string;
+  explanation: string;
+  lines: DialogLine[];
+  usedWords: string[];
+  createdAt: number;
+}

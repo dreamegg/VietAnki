@@ -5,40 +5,38 @@ import { analyzeWordWithAI } from '../lib/gemini';
 
 interface AIAnalysisProps {
   card: Flashcard;
+  canAnalyze: boolean;
+  progress: number;
+  threshold: number;
 }
 
-export const AIAnalysis: React.FC<AIAnalysisProps> = ({ card }) => {
+export const AIAnalysis: React.FC<AIAnalysisProps> = ({ card, canAnalyze, progress, threshold }) => {
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [requested, setRequested] = useState(false);
+
+  const requestAnalysis = async () => {
+    if (!canAnalyze || loading) return;
+
+    try {
+      setLoading(true);
+      const result = await analyzeWordWithAI(card);
+      setAnalysis(result);
+      setError(null);
+      setRequested(true);
+    } catch (err: any) {
+      setError(err.message || 'AI 분석 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let mounted = true;
-
-    const fetchAnalysis = async () => {
-      try {
-        setLoading(true);
-        const result = await analyzeWordWithAI(card);
-        if (mounted) {
-          setAnalysis(result);
-          setError(null);
-        }
-      } catch (err: any) {
-        if (mounted) {
-          setError(err.message || 'AI 분석 중 오류가 발생했습니다.');
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchAnalysis();
-
-    return () => {
-      mounted = false;
-    };
+    setLoading(false);
+    setError(null);
+    setAnalysis(null);
+    setRequested(false);
   }, [card]);
 
   if (loading) {
@@ -58,7 +56,24 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ card }) => {
     );
   }
 
-  if (!analysis) return null;
+  if (!requested || !analysis) {
+    return (
+      <div className="space-y-4 bg-white border border-indigo-100 rounded-2xl p-6 shadow-sm">
+        <p className="text-sm text-slate-500">
+          {canAnalyze
+            ? '현재 단어의 AI 심층 분석 결과가 없습니다. 아래 버튼을 눌러 요청하세요.'
+            : `학습 진행도를 위해 ${progress}/${threshold}회 이상 복습 버튼을 눌러야 분석이 가능합니다.`}
+        </p>
+        <button
+          onClick={requestAnalysis}
+          disabled={!canAnalyze}
+          className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
+        >
+          AI 분석 요청
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 bg-white border border-indigo-100 rounded-2xl p-6 shadow-sm">
