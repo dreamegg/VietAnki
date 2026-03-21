@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { getLevelDialogs, getSelectedLevel } from '../lib/storage';
+import { getLevelDialogs, getSelectedLevel, subscribeToDataRefresh } from '../lib/storage';
 import { LevelDialog } from '../types';
 
 interface LevelDialogModeProps {
@@ -39,6 +39,10 @@ export const LevelDialogMode: React.FC<LevelDialogModeProps> = ({ onNavigate }) 
 
   useEffect(() => {
     void loadDialogs();
+  }, [currentLevel]);
+
+  useEffect(() => {
+    return subscribeToDataRefresh(() => void loadDialogs());
   }, [currentLevel]);
 
   useEffect(() => {

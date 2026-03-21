@@ -2,9 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
 import { BookOpen, Sparkles, Loader2 } from 'lucide-react';
 import { Flashcard, LevelDialog } from '../types';
-import { getCards } from '../lib/storage';
+import { getCards, saveLevelDialog, getLevelDialogs, subscribeToDataRefresh } from '../lib/storage';
 import { generateDialogWithAI } from '../lib/gemini';
-import { saveLevelDialog, getLevelDialogs } from '../lib/storage';
 
 interface LevelDialogsProps {
   onNavigate: (view: 'dashboard') => void;
@@ -42,6 +41,13 @@ export const LevelDialogs: React.FC<LevelDialogsProps> = ({ onNavigate }) => {
 
   useEffect(() => {
     void loadDialogs();
+  }, [currentLevel]);
+
+  useEffect(() => {
+    return subscribeToDataRefresh(() => {
+      void loadCards();
+      void loadDialogs(currentLevel);
+    });
   }, [currentLevel]);
 
   const handleGenerate = async () => {

@@ -50,6 +50,38 @@ let initialized = false;
 let initializing: Promise<void> | null = null;
 let serverAvailable = true;
 
+type RefreshCallback = () => void;
+const refreshCallbacks = new Set<RefreshCallback>();
+
+export const subscribeToDataRefresh = (cb: RefreshCallback): (() => void) => {
+  refreshCallbacks.add(cb);
+  return () => refreshCallbacks.delete(cb);
+};
+
+const notifySubscribers = () => {
+  for (const cb of refreshCallbacks) cb();
+};
+
+const syncFromServer = async () => {
+  if (!initialized || !serverAvailable) return;
+  const changed = await loadFromServer();
+  if (changed) notifySubscribers();
+};
+
+const startBackgroundSync = () => {
+  const intervalId = setInterval(() => void syncFromServer(), 30_000);
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        void syncFromServer();
+      }
+    });
+  }
+
+  return intervalId;
+};
+
 const getDataVersion = () => localStorage.getItem(DATA_VERSION_KEY);
 
 const setDataVersion = (value: string) => {
@@ -175,10 +207,17 @@ const loadFromServer = async (): Promise<boolean> => {
     return false;
   }
 
+  let changed = false;
+
   if (Array.isArray(payload?.cards)) {
     const serverCards = payload.cards.map(sanitizeCard);
-    cardsCache = serverCards;
-    writeCardsToLocal(serverCards);
+    const prevJson = JSON.stringify(cardsCache);
+    const nextJson = JSON.stringify(serverCards);
+    if (prevJson !== nextJson) {
+      cardsCache = serverCards;
+      writeCardsToLocal(serverCards);
+      changed = true;
+    }
   }
 
   if (payload?.levelDialogs && typeof payload.levelDialogs === 'object') {
@@ -188,11 +227,16 @@ const loadFromServer = async (): Promise<boolean> => {
         normalized[level] = (list as any[]).map(normalizeDialog);
       }
     }
-    levelDialogsCache = normalized;
-    writeDialogsToLocal(normalized);
+    const prevJson = JSON.stringify(levelDialogsCache);
+    const nextJson = JSON.stringify(normalized);
+    if (prevJson !== nextJson) {
+      levelDialogsCache = normalized;
+      writeDialogsToLocal(normalized);
+      changed = true;
+    }
   }
 
-  return true;
+  return changed;
 };
 
 const ensureInitialized = async () => {
@@ -240,6 +284,7 @@ const ensureInitialized = async () => {
       }
 
       initialized = true;
+      startBackgroundSync();
     })();
   }
 
