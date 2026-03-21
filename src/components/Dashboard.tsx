@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpen, BrainCircuit, Database, Trophy, Layers, MessageCircle, Mic2 } from 'lucide-react';
-import { getStats, getSelectedLevel, setSelectedLevel } from '../lib/storage';
+import { getStats, getSelectedLevel, setSelectedLevel, subscribeToDataRefresh } from '../lib/storage';
 
 interface DashboardProps {
   onNavigate: (view: 'dashboard' | 'study' | 'data' | 'dialogs' | 'dialogMode') => void;
@@ -31,6 +31,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   useEffect(() => {
     void loadStats();
   }, [currentLevel]);
+
+  useEffect(() => {
+    return subscribeToDataRefresh(() => void loadStats());
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">

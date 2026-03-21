@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Sparkles, Loader2, Volume2 } from 'lucide-react';
 import { Flashcard } from '../types';
-import { getStudyBatch, updateCard } from '../lib/storage';
+import { getStudyBatch, updateCard, subscribeToDataRefresh } from '../lib/storage';
 import { calculateNextReview } from '../lib/srs';
 import { AIAnalysis } from './AIAnalysis';
 
@@ -47,6 +47,13 @@ export const StudySession: React.FC<StudySessionProps> = ({ onNavigate }) => {
   useEffect(() => {
     void loadNextBatch();
   }, []);
+
+  useEffect(() => {
+    // 카드를 학습 중이 아닐 때(빈 상태)에만 서버 갱신 시 새로 로드
+    return subscribeToDataRefresh(() => {
+      if (cards.length === 0) void loadNextBatch();
+    });
+  }, [cards.length]);
 
   if (loading) {
     return (

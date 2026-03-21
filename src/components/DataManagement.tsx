@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Papa from 'papaparse';
 import { Upload, Trash2, ArrowLeft, FileText, RefreshCw, Sparkles, Loader2 } from 'lucide-react';
-import { addCards, clearAllCards, getStats, getCards } from '../lib/storage';
+import { addCards, clearAllCards, getStats, getCards, subscribeToDataRefresh } from '../lib/storage';
 import { createInitialCard } from '../lib/srs';
 import { getDefaultCards } from '../lib/defaultData';
 import { generateNewWordsWithAI } from '../lib/gemini';
@@ -24,6 +24,10 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onNavigate }) =>
 
   useEffect(() => {
     void loadStats();
+  }, []);
+
+  useEffect(() => {
+    return subscribeToDataRefresh(() => void loadStats());
   }, []);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
